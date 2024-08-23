@@ -261,7 +261,7 @@ plt.show()
 from sklearn.metrics import r2_score
 R2_Score_dtr = round(r2_score(train_predict,Y_actual) * 100, 2)
 print("R2 Score for LSTM : ", R2_Score_dtr,"%")
-
+#Import library for saving model
 import pickle
 #Save the model to a file
 with open('results/solar-lstm-model.pkl', 'wb') as f:
