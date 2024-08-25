@@ -235,7 +235,7 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 
 # Train the model
 #model.fit(X, Y, epochs=20, batch_size=32, verbose=2)
-model.fit(X_train, y_train, epochs=40, batch_size=32, verbose=2)
+model.fit(X_train, y_train, epochs=1, batch_size=32, verbose=2)
 
 # Predicting on the training data itself (for demonstration)
 train_predict = model.predict(X_test)
