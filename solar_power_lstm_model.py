@@ -1,5 +1,3 @@
-import pandas as pd
-
 # Import necessary libraries
 import pandas as pd
 import numpy as np
@@ -29,12 +27,12 @@ df_solar['WEEK'] = pd.to_datetime(df_solar['DATE_TIME']).dt.weekday
 
 df_solar.info()
 
-# add hours and minutes for ml models
+# Add hours and minutes for ml models
 df_solar['HOURS'] = pd.to_datetime(df_solar['TIME'],format='%H:%M:%S').dt.hour
 df_solar['MINUTES'] = pd.to_datetime(df_solar['TIME'],format='%H:%M:%S').dt.minute
 df_solar['TOTAL MINUTES PASS'] = df_solar['MINUTES'] + df_solar['HOURS']*60
 
-# add date as string column
+# Add date as string column
 df_solar["DATE_STRING"] = df_solar["DATE"].astype(str) # add column with date as string
 df_solar["HOURS"] = df_solar["HOURS"].astype(str)
 df_solar["TIME"] = df_solar["TIME"].astype(str)
@@ -45,19 +43,19 @@ print(df_solar.isnull().sum())
 
 print(df_solar.describe().style.background_gradient(cmap='rainbow'))
 
-#convert from categorial to numerical
+#Convert from categorial to numerical
 from sklearn.preprocessing import LabelEncoder
 encoder = LabelEncoder()
 df_solar['SOURCE_KEY_NUMBER'] = encoder.fit_transform(df_solar['SOURCE_KEY'])
 
 df_solar.head()
 
-# visualise data
+#Visualise data
 sns.displot(data=df_solar, x="AMBIENT_TEMPERATURE", kde=True, bins = 100,color = "red", facecolor = "#3F7F7F",height = 5, aspect = 3.5);
 
 print(df_solar['DATE'].nunique())
 
-#ploting of DC power generation on per day basis
+#Ploting of DC power generation on per day basis
 solar_dc = df_solar.pivot_table(values='DC_POWER', index='TIME', columns='DATE')
 
 def Daywise_plot(data= None, row = None, col = None, title='DC Power'):
@@ -235,7 +233,7 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 
 # Train the model
 #model.fit(X, Y, epochs=20, batch_size=32, verbose=2)
-model.fit(X_train, y_train, epochs=1, batch_size=32, verbose=2)
+model.fit(X_train, y_train, epochs=50, batch_size=10, verbose=2)
 
 # Predicting on the training data itself (for demonstration)
 train_predict = model.predict(X_test)
@@ -249,8 +247,7 @@ Y_actual = scaler.inverse_transform(
     np.hstack((y_test.reshape(-1, 1), np.zeros((y_test.shape[0], X_test.shape[2]))))
 )[:, 0]
 
-
-# Plot the results
+# Plot the results to demonstrate the accuracy of the model
 plt.figure(figsize=(10, 6))
 plt.plot(Y_actual, label="Actual AC Power")
 plt.plot(train_predict, label="Predicted AC Power")
@@ -261,6 +258,7 @@ plt.show()
 from sklearn.metrics import r2_score
 R2_Score_dtr = round(r2_score(train_predict,Y_actual) * 100, 2)
 print("R2 Score for LSTM : ", R2_Score_dtr,"%")
+
 #Import library for saving model
 import pickle
 #Save the model to a file
