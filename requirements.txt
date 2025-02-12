@@ -3,3 +3,6 @@ scikit-learn
 pandas
 numpy
 tensorflow
+torch
+matplotlib
+sqlalchemy

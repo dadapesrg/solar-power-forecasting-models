@@ -181,7 +181,7 @@ plt.title('Output power vs efficiency')
 
 df2 = df_solar.copy()
 
-#testing data with LSTM
+#Testing data with LSTM
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
@@ -195,11 +195,11 @@ import matplotlib.pyplot as plt
 np.random.seed(7)
 
 # Create exogenous variables: Daily_yield, Ambient_Temperature, Module_tem[perature, Irradiation, DC_power
-features = df2[['DAILY_YIELD','TOTAL_YIELD','AMBIENT_TEMPERATURE','MODULE_TEMPERATURE','IRRADIATION','DC_POWER','AC_POWER']].values
-
+features_data = df2[['DAILY_YIELD','TOTAL_YIELD','AMBIENT_TEMPERATURE','MODULE_TEMPERATURE','IRRADIATION','DC_POWER','AC_POWER']].values
+print("Features", pd.DataFrame(features_data))
 # Normalize the data
 scaler = MinMaxScaler(feature_range=(0, 1))
-scaled_data = scaler.fit_transform(features)
+scaled_data = scaler.fit_transform(features_data)
 
 # Function to create the dataset
 def create_dataset(data, time_step=1):
