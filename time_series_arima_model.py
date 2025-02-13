@@ -66,7 +66,7 @@ print(df_solar.head())
 #df_ = df.set_index('SETTLEMENT_DATE').resample('60min').mean()
 
 # Resample to average values for hourly data
-data = df_solar.resample('60min').mean()
+data = df_solar #.resample('60min').mean()
 
 # Visualise acf and pacf
 plot_acf(data)
@@ -142,9 +142,9 @@ if not is_stationary:
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
-seasonal_p = 24
+seasonal_p = 48
 if is_seasonal:
-	seasonal_p = 24
+	seasonal_p = 48
 
 # Evaluate arima model to determine the order
 best_model = evaluate_models(data, max_p=5, max_d=1, max_q=5, 
