@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
-import pmdarima as pm
 from pmdarima.arima import auto_arima, StepwiseContext
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
