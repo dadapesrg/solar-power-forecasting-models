@@ -136,9 +136,9 @@ def fit_and_evaluate_arima_model(X_train, X_test, arima_order, seasonal_order=No
 is_stationary = adf_test(data)
 max_d = 0
 if not is_stationary:
-	data = data.diff().dropna()
+	data_diff = data.diff().dropna()
 	max_d = max_d + 1
-	is_stationary = adf_test(data)
+	is_stationary = adf_test(data_diff)
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
