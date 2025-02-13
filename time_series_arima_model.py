@@ -66,7 +66,7 @@ print(df_solar.head())
 #df_ = df.set_index('SETTLEMENT_DATE').resample('60min').mean()
 
 # Resample to average values for hourly data
-data = df_solar #.resample('60min').mean()
+data = df_solar.resample('D').mean()
 
 # Visualise acf and pacf
 plot_acf(data)
@@ -134,20 +134,20 @@ def fit_and_evaluate_arima_model(X_train, X_test, arima_order, seasonal_order=No
 
 # Perform ADF test to check station
 is_stationary = adf_test(data)
-max_d = 1
+max_d = 0
 if not is_stationary:
 	data_diff = data.diff().dropna()
-	#max_d = max_d + 1
-	#is_stationary = adf_test(data_diff)
+	max_d = max_d + 1
+	is_stationary = adf_test(data_diff)
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
-seasonal_p = 48
+seasonal_p = 24
 if is_seasonal:
-	seasonal_p = 48
+	seasonal_p = 24
 
 # Evaluate arima model to determine the order
-best_model = evaluate_models(data, max_p=5, max_d=1, max_q=5, 
+best_model = evaluate_models(data, max_p=3, max_d=max_d, max_q=3, 
 							is_seasonal=is_seasonal,  seasonal_p=seasonal_p, stepwise=True)
 
 # Summary of best ARIMA model
