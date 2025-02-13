@@ -142,7 +142,7 @@ if not is_stationary:
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
-seasonal_p = None
+seasonal_p = 48
 if is_seasonal:
 	seasonal_p = 48
 
