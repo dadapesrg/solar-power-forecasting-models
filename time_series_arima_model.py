@@ -142,9 +142,9 @@ if not is_stationary:
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
-seasonal_p = 48
+seasonal_p = 24
 if is_seasonal:
-	seasonal_p = 48
+	seasonal_p = 24
 
 # Evaluate arima model to determine the order
 best_model = evaluate_models(data, max_p=5, max_d=1, max_q=5, 
