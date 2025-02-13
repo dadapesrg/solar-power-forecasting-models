@@ -147,7 +147,7 @@ if is_seasonal:
 	seasonal_p = 48
 
 # Evaluate arima model to determine the order
-best_model = evaluate_models(data, max_p=5, max_d=max_d, max_q=5, 
+best_model = evaluate_models(data, max_p=5, max_d=1, max_q=5, 
 							is_seasonal=is_seasonal,  seasonal_p=seasonal_p, stepwise=True)
 
 # Summary of best ARIMA model
