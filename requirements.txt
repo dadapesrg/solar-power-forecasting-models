@@ -6,3 +6,5 @@ tensorflow
 torch
 matplotlib
 sqlalchemy
+statsmodels
+pmdarima
