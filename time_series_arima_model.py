@@ -138,7 +138,7 @@ max_d = 0
 if not is_stationary:
 	data_diff = data.diff().dropna()
 	max_d = max_d + 1
-	is_stationary = adf_test(data_diff)
+	#is_stationary = adf_test(data_diff)
 
 # Specify if the data is seasonal and seasonal period
 is_seasonal = True
