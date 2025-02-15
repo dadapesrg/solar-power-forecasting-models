@@ -13,31 +13,27 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from pmdarima.arima import auto_arima, StepwiseContext
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score,  mean_squared_error, mean_absolute_error
+from pandas.plotting import autocorrelation_plot
 from math import sqrt
 
 import warnings
 warnings.filterwarnings("ignore")
 
 # Load dataset and combine all years data into one dataset
-#df = pd.read_csv('data/UK_data/demanddata_2011_2025.csv', parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE')
-
-# Load dataset and combine all years data into one dataset
-#year = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-year = [2022, 2023, 2024, 2025]
-df = pd.read_csv('data/UK_data/demanddata_2022.csv', parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE')
+year = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+df = pd.read_csv('data/UK_data/demanddata_2018.csv', parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE')
 
 #Use only 2018 to 2025 data to reduce the size of the dataset for ARIMA model
 for i in range(len(year)):
     data_path = f'data/UK_data/demanddata_{year[i]}.csv'    
     df_year = pd.read_csv(data_path, parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE') 
     df = pd.concat([df, df_year], ignore_index=False)
-
-# Save the combined dataset
-df.to_csv('data/UK_data/demanddata_2018_2025.csv')
 
 #Exploratory data analysis
 # Check the first few rows of the data
@@ -55,27 +51,58 @@ print(df.isnull().sum())
 # Check the summary statistics of the data
 print(df.describe())   
 
-# Select the demand column for analysis
+# Select the solar generation column for analysis
 df['EMBEDDED_SOLAR_GENERATION'] = df['EMBEDDED_SOLAR_GENERATION'].astype('float32')
-
-df_solar = df['EMBEDDED_SOLAR_GENERATION']  # Embedded solar is the column for demand
+df_solar = df['EMBEDDED_SOLAR_GENERATION']  # Embedded solar is the column for solar generation in the UK
 print(df_solar.head())
 
-#df['SETTLEMENT_DATE'] = pd.to_datetime(df['SETTLEMENT_DATE'])
-#df_d = df.sort_values(by=['SETTLEMENT_DATE'])
-#df_ = df.set_index('SETTLEMENT_DATE').resample('60min').mean()
+# Using the 14 days forecast data
+df_days_solar = pd.read_csv('data/UK_data/embedded_forecast.csv', parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE')
+
+df_days_solar['EMBEDDED_SOLAR_FORECAST'] = df_days_solar['EMBEDDED_SOLAR_FORECAST'].astype('float32')
+df_days_solar_data = df_days_solar['EMBEDDED_SOLAR_FORECAST']  # Embedded solar is the column for solar generation in the UK
+print(df_days_solar_data.head())
+
 
 # Resample to average values for hourly data
-data = df_solar.resample('D').mean()
+#data = df_solar.resample('D').mean()
+data = df_days_solar_data #.resample('30min').mean()
+
+# Plot the solar generation data
+
+seasonal_p = 48 #24
+decomposition=seasonal_decompose(data, model='additive', period=seasonal_p)
+decomposition.plot()
+plt.show()
+
+autocorrelation_plot(data)
+plt.show()
 
 # Visualise acf and pacf
 plot_acf(data)
 plot_pacf(data)
 plt.show()
 
+data_diff = data.diff().dropna()
+plot_acf(data_diff, lags=100)
+plot_pacf(data_diff, lags=100)
+plt.show()
+
+seasonal_data_diff = data_diff.diff(seasonal_p).dropna()
+plot_acf(seasonal_data_diff, lags=seasonal_p)
+plot_pacf(seasonal_data_diff, lags=seasonal_p)
+plt.show()
+
+# Split the dataset into train and test set
+X = data.values
+size = int(len(X) * 0.8)
+X_train, X_test = X[0:size], X[size:len(X)]
+
 # Plot the solar generation data
 plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data.index[-1], freq= 'H', periods=data.shape[0]), data, label="Solar Generation")
+#plt.plot(data, label="Solar Generation")
+plt.plot(pd.date_range(data.index[-1], freq= 'D', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
+
 plt.title("UK Solar Generation Over Time")
 plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
@@ -95,98 +122,29 @@ def adf_test(series):
 	else:		
 		print("The series is NOT stationary, differencing is required.")
 	return is_stationary 
-   
-# Use StepwiseContext to estimate the arima model order   
-def evaluate_models(dataset, max_p=None, max_d=None, max_q=None, 
-					is_seasonal=False, seasonal_p=None, stepwise=False):				
-	with StepwiseContext():
-		best_model = auto_arima(
-			dataset,
-			start_p=0, max_p=max_p,   # AR terms
-			start_q=0, max_q=max_q,   # MA terms
-			start_d=0, max_d=max_d,    # Auto-detect differencing
-			simple_differencing=True,  # Use simple differencing
-			seasonal=is_seasonal,       # Seasonal ARIMA
-       		m=seasonal_p,           # Seasonal period, energy demand has weekly seasonality
-			stepwise=stepwise,        # Stepwise search 
-			suppress_warnings=True,
-			error_action="ignore",
-			cache_size=1,
-			trace=True
-   		)
-		return best_model
-		
 
-# Define function to fit and evaluate the model
-def fit_and_evaluate_arima_model(X_train, X_test, arima_order, seasonal_order=None):
-	history = [x for x in X_train]
-	predictions = list()
-	for t in range(len(X_test)):
-		model = ARIMA(history, order= arima_order, seasonal_order=seasonal_order) 
-		model_fit = model.fit()
-		output = model_fit.forecast()
-		yhat = output[0]
-		predictions.append(yhat)
-		obs = X_test[t]
-		history.append(obs) # Update the data for the next model fit
-		print('predicted=%f, expected=%f' % (yhat, obs))
-	return model_fit, predictions
-
-# Perform ADF test to check station
 is_stationary = adf_test(data)
-max_d = 0
-if not is_stationary:
-	data_diff = data.diff().dropna()
-	max_d = max_d + 1
-	is_stationary = adf_test(data_diff)
 
-# Specify if the data is seasonal and seasonal period
-is_seasonal = True
-seasonal_p = 24
-if is_seasonal:
-	seasonal_p = 24
-
+arima_order = (2,1,0)
+seasonal_order = (1,1,1,seasonal_p)	
+#arima_order = (4,1,0)
+#seasonal_order = (2,1,0,seasonal_p)	
 # Evaluate arima model to determine the order
-best_model = evaluate_models(data, max_p=3, max_d=max_d, max_q=3, 
-							is_seasonal=is_seasonal,  seasonal_p=seasonal_p, stepwise=True)
+"""
+auto_model = auto_arima(data,start_p=1,start_q=1, d=1, test='adf', m=seasonal_p,D=1, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
 
 # Summary of best ARIMA model
-print(best_model.summary())
-
-# Split the dataset into train
-X = data.values
-size = int(len(X) * 0.8)
-X_train, X_test = X[0:size], X[size:len(X)]
+print(auto_model.summary())
+arima_order = auto_model.order
+seasonal_order = auto_model.seasonal_order
 """
-# Split data into train and test
-train_size = int(len(data) * 0.8)
-train, test = data.iloc[:train_size], data.iloc[train_size:]
+
+#arima_order = (p,d,q)
+#seasonal_order = (p,d,q,seasonal_p)	
 
 # Fit ARIMA model
-model = ARIMA(X, order=(1,1,1))
+model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
 model_fit = model.fit()
-# Forecast
-forecast = model_fit.forecast(steps=len(X_test))
-
-# Plot the results with specified colors
-plt.figure(figsize=(14,7))
-plt.plot(train.index, X_train, label='Train', color='#203147')
-plt.plot(test.index, X_test, label='Test', color='#01ef63')
-plt.plot(test.index, forecast, label='Forecast', color='orange')
-plt.title('Solar Generation Forecast')
-plt.xlabel('Date')
-plt.ylabel('Solar Generation')
-plt.legend()
-plt.show()
-"""
-# Extract best parameters
-# Print the parameters of the best model
-print("The order of best model is:", best_model.order, best_model.seasonal_order)
-model_fit, predictions = fit_and_evaluate_arima_model(X_train, X_test, best_model.order , best_model.seasonal_order)
-
-# Evaluate forecasts
-rmse = sqrt(mean_squared_error(X_test, predictions))
-print('Test RMSE: %.3f' % rmse)
 
 # Line plot of residuals
 residuals = pd.DataFrame(model_fit.resid)
@@ -203,26 +161,29 @@ print(residuals.describe())
 # Print model summary
 print(model_fit.summary())
 
-# Forecast next 30 days demand
-forecast_steps = 30
+# Forecast solar generation using the test data
+forecast_steps = len(X) - size
+predictions = model_fit.forecast(steps=forecast_steps)
+print(predictions)
+
+forecast_steps = len(X) - size + 365 #52
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
-
 # Plot forecasts against actual outcomes
-x = np.arange(X_test.shape[0])
 plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=(len(X) - size)), X_test, label="Actual", marker='x')
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=(len(X) - size)), predictions, label="Prediction")
-
-#plt.plot(predictions, label="Forecast", color='red')
+plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'D', periods=(len(X) - size)), X_test, label="Actual", marker='x')
+plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'D', periods=forecast_steps), forecast, label="Prediction")
 plt.title("UK Embedded Solar Generation Forecast")
 plt.xlabel("Date ")
 plt.ylabel("Solar Generation (MW)")
 plt.legend()
 plt.show()
 
-from sklearn.metrics import r2_score,  mean_squared_error, mean_absolute_error
+# Evaluate forecasts
+rmse = sqrt(mean_squared_error(X_test, predictions))
+print('Test RMSE: %.3f' % rmse)
+
 r2 = r2_score(X_test, predictions)
 mse = mean_squared_error(X_test, predictions)
 rmse = np.sqrt(mse)
