@@ -125,22 +125,18 @@ def adf_test(series):
 
 is_stationary = adf_test(data)
 
-arima_order = (2,1,0)
-seasonal_order = (1,1,1,seasonal_p)	
+#arima_order = (3,1,4)
+#seasonal_order = (3,1,4,seasonal_p)	
 #arima_order = (4,1,0)
-#seasonal_order = (2,1,0,seasonal_p)	
+#seasonal_order = (2,1,0,seasonal_p)
+	
 # Evaluate arima model to determine the order
-"""
 auto_model = auto_arima(data,start_p=1,start_q=1, d=1, test='adf', m=seasonal_p,D=1, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
 
 # Summary of best ARIMA model
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
-"""
-
-#arima_order = (p,d,q)
-#seasonal_order = (p,d,q,seasonal_p)	
 
 # Fit ARIMA model
 model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
@@ -166,7 +162,7 @@ forecast_steps = len(X) - size
 predictions = model_fit.forecast(steps=forecast_steps)
 print(predictions)
 
-forecast_steps = len(X) - size + 365 #52
+forecast_steps = len(X) - size + 48
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
