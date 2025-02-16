@@ -1,12 +1,12 @@
-# We will use ARIMA model to forecast the electricity load demand in the UK. 
+# We will use ARIMA model to forecast the solar power generation in the UK. 
 # ARIMA is a time series forecasting model that uses past data to predict future values.  
 # The model has three main parameters: p, d, and q.
 # p: The number of lag observations included in the model (lag order).
 # d: The number of times that the raw observations are differenced (degree of differencing).
 # q: The size of the moving average window (order of moving average).
 # We will use the auto_arima function from the pmdarima library to automatically find the best parameters for the ARIMA model.
-# We will then fit the ARIMA model to the data and forecast the electricity demand for the next 30 days.
-# Finally, we will plot the forecasted demand along with the observed data to visualize the results.
+# We will then fit the ARIMA model to the data and forecast the solar generation and test the accuracy of the model.
+# Finally, we will plot the forecasted generation along with the test data to visualize the results.
 
 # Import necessary libraries
 import numpy as np
@@ -59,18 +59,19 @@ print(df_solar.head())
 # Resample to average values for weekly data
 data = df_solar.resample('W').mean()
 
-# Visualise the seasonal decomposition
-seasonal_p = 52 #24
-decomposition=seasonal_decompose(data, model='additive', period=seasonal_p)
-decomposition.plot()
-plt.show()
-
+# Perform autocorrelation plot
 autocorrelation_plot(data)
 plt.show()
 
 # Visualise acf and pacf
 plot_acf(data)
 plot_pacf(data)
+plt.show()
+
+# Visualise the seasonal decomposition
+seasonal_p = 52 
+decomposition=seasonal_decompose(data, model='additive', period=seasonal_p)
+decomposition.plot()
 plt.show()
 
 # Split the dataset into train and test set
@@ -87,7 +88,7 @@ plt.ylabel(" Solar Generation (MW)")
 plt.legend()
 #plt.savefig('plots/uk_electricity_demand_daily.png')
 plt.show()
-"""
+
 # Perform Augmented Dickey-Fuller (ADF)test to check for stationarity
 def adf_test(series):
 	is_stationary = False
@@ -115,7 +116,8 @@ if not is_stationary:
 	plot_pacf(seasonal_data_diff, lags=seasonal_p)
 	plt.show()	
 	data = seasonal_data_diff
-	
+
+"""	
 # Evaluate arima model to determine the order
 auto_model = auto_arima(data,start_p=1,start_q=1, d=max_d, test='adf', n_jobs=-1, m=seasonal_p,D=max_D, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
 
@@ -128,8 +130,17 @@ seasonal_order = auto_model.seasonal_order
 #seasonal_order = (3,1,4,seasonal_p)
 #arima_order = (0,1,1) (.82)
 
-arima_order = (0,1,1) 
-seasonal_order = (0,1,1,seasonal_p)
+# r2 = 0.82
+#arima_order = (0,1,1) 
+#seasonal_order = (0,1,1,seasonal_p)
+
+# r2 = 0.83
+#arima_order = (1,1,1)
+#seasonal_order = (1,1,1,seasonal_p)	
+
+arima_order = (5,1,2)
+seasonal_order = (5,1,1,seasonal_p)
+
 
 #arima_order = (1,0,1)
 #seasonal_order = (0,1,1,seasonal_p)
@@ -158,16 +169,18 @@ forecast_steps = len(X) - size
 predictions = model_fit.forecast(steps=forecast_steps)
 print(predictions)
 
-forecast_steps = len(X) - size + 48
+# Forecast solar generation using the test data
+forecast_steps = len(X) - size 
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
-# Plot forecasts against actual outcomes
-plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=(len(X) - size)), X_test, label="Actual", marker='x')
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=forecast_steps), forecast, label="Prediction")
+# Plot the results with specified colors
+plt.figure(figsize=(14,7))
+plt.plot(data.iloc[:size].index, X_train, label='Train', color='#203147')
+plt.plot(data.iloc[size:].index, X_test, label='Test', color='#01ef63')
+plt.plot(data.iloc[size:].index, forecast, label='Forecast', color='orange')
 plt.title("UK Embedded Solar Generation Forecast")
-plt.xlabel("Date ")
+plt.xlabel("Date")
 plt.ylabel("Solar Generation (MW)")
 plt.legend()
 plt.show()
