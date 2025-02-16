@@ -80,14 +80,14 @@ X_train, X_test = X[0:size], X[size:len(X)]
 
 # Plot the solar generation data
 plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data.index[-1], freq= 'D', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
+plt.plot(pd.date_range(data.index[-1], freq= 'H', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
 plt.title("UK Solar Generation Over Time")
 plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
 plt.legend()
 #plt.savefig('plots/uk_electricity_demand_daily.png')
 plt.show()
-
+"""
 # Perform Augmented Dickey-Fuller (ADF)test to check for stationarity
 def adf_test(series):
 	is_stationary = False
@@ -105,7 +105,7 @@ is_stationary = adf_test(data)
 
 # Perform differencing if data is Not stationary
 max_d = 0
-max_D = 0
+max_D = 1
 if not is_stationary:
 	max_d = max_d + 1
 	max_D = max_D + 1
@@ -123,9 +123,16 @@ auto_model = auto_arima(data,start_p=1,start_q=1, d=max_d, test='adf', n_jobs=-1
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
-
-#arima_order = (3,1,4)
+"""
+#arima_order = (3,1,4) (81)
 #seasonal_order = (3,1,4,seasonal_p)
+#arima_order = (0,1,1) (.82)
+
+arima_order = (0,1,1) 
+seasonal_order = (0,1,1,seasonal_p)
+
+#arima_order = (1,0,1)
+#seasonal_order = (0,1,1,seasonal_p)
 
 # Fit ARIMA model
 model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
@@ -157,8 +164,8 @@ print(forecast)
 
 # Plot forecasts against actual outcomes
 plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'D', periods=(len(X) - size)), X_test, label="Actual", marker='x')
-plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'D', periods=forecast_steps), forecast, label="Prediction")
+plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=(len(X) - size)), X_test, label="Actual", marker='x')
+plt.plot(pd.date_range(data[size:len(X)].index[-1], freq= 'H', periods=forecast_steps), forecast, label="Prediction")
 plt.title("UK Embedded Solar Generation Forecast")
 plt.xlabel("Date ")
 plt.ylabel("Solar Generation (MW)")

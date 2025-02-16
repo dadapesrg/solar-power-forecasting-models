@@ -1,1 +1,2 @@
 The project uses solar irradiance and historical solar power to develop Pytorch and Tensorflow based deep learning (LSTM, CNN) models for forecasting solar power generation using dataset from https://www.kaggle.com/.
+The time series dataset used for ARIMA model was obtained from the UK National Energy System Operator (NESO) portal at https://www.neso.energy/data-portal.
