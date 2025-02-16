@@ -56,21 +56,11 @@ df['EMBEDDED_SOLAR_GENERATION'] = df['EMBEDDED_SOLAR_GENERATION'].astype('float3
 df_solar = df['EMBEDDED_SOLAR_GENERATION']  # Embedded solar is the column for solar generation in the UK
 print(df_solar.head())
 
-# Using the 14 days forecast data
-df_days_solar = pd.read_csv('data/UK_data/embedded_forecast.csv', parse_dates=['SETTLEMENT_DATE'], index_col='SETTLEMENT_DATE')
+# Resample to average values for weekly data
+data = df_solar.resample('W').mean()
 
-df_days_solar['EMBEDDED_SOLAR_FORECAST'] = df_days_solar['EMBEDDED_SOLAR_FORECAST'].astype('float32')
-df_days_solar_data = df_days_solar['EMBEDDED_SOLAR_FORECAST']  # Embedded solar is the column for solar generation in the UK
-print(df_days_solar_data.head())
-
-
-# Resample to average values for hourly data
-#data = df_solar.resample('D').mean()
-data = df_days_solar_data #.resample('30min').mean()
-
-# Plot the solar generation data
-
-seasonal_p = 48 #24
+# Visualise the seasonal decomposition
+seasonal_p = 52 #24
 decomposition=seasonal_decompose(data, model='additive', period=seasonal_p)
 decomposition.plot()
 plt.show()
@@ -83,16 +73,6 @@ plot_acf(data)
 plot_pacf(data)
 plt.show()
 
-data_diff = data.diff().dropna()
-plot_acf(data_diff, lags=100)
-plot_pacf(data_diff, lags=100)
-plt.show()
-
-seasonal_data_diff = data_diff.diff(seasonal_p).dropna()
-plot_acf(seasonal_data_diff, lags=seasonal_p)
-plot_pacf(seasonal_data_diff, lags=seasonal_p)
-plt.show()
-
 # Split the dataset into train and test set
 X = data.values
 size = int(len(X) * 0.8)
@@ -100,9 +80,7 @@ X_train, X_test = X[0:size], X[size:len(X)]
 
 # Plot the solar generation data
 plt.figure(figsize=(12, 6))
-#plt.plot(data, label="Solar Generation")
 plt.plot(pd.date_range(data.index[-1], freq= 'D', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
-
 plt.title("UK Solar Generation Over Time")
 plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
@@ -125,18 +103,29 @@ def adf_test(series):
 
 is_stationary = adf_test(data)
 
-#arima_order = (3,1,4)
-#seasonal_order = (3,1,4,seasonal_p)	
-#arima_order = (4,1,0)
-#seasonal_order = (2,1,0,seasonal_p)
+# Perform differencing if data is Not stationary
+max_d = 0
+max_D = 0
+if not is_stationary:
+	max_d = max_d + 1
+	max_D = max_D + 1
+	data_diff = data.diff().dropna()
+	seasonal_data_diff = data_diff.diff(seasonal_p).dropna()	
+	plot_acf(seasonal_data_diff, lags=seasonal_p)
+	plot_pacf(seasonal_data_diff, lags=seasonal_p)
+	plt.show()	
+	data = seasonal_data_diff
 	
 # Evaluate arima model to determine the order
-auto_model = auto_arima(data,start_p=1,start_q=1, d=1, test='adf', m=seasonal_p,D=1, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
+auto_model = auto_arima(data,start_p=1,start_q=1, d=max_d, test='adf', n_jobs=-1, m=seasonal_p,D=max_D, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
 
 # Summary of best ARIMA model
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
+
+#arima_order = (3,1,4)
+#seasonal_order = (3,1,4,seasonal_p)
 
 # Fit ARIMA model
 model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
