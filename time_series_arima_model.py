@@ -21,6 +21,7 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import r2_score,  mean_squared_error, mean_absolute_error
 from pandas.plotting import autocorrelation_plot
 from math import sqrt
+import joblib
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -126,24 +127,14 @@ print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
 """
-#arima_order = (3,1,4) (81)
-#seasonal_order = (3,1,4,seasonal_p)
-#arima_order = (0,1,1) (.82)
 
 # r2 = 0.82
 #arima_order = (0,1,1) 
 #seasonal_order = (0,1,1,seasonal_p)
 
 # r2 = 0.83
-#arima_order = (1,1,1)
-#seasonal_order = (1,1,1,seasonal_p)	
-
-arima_order = (5,1,2)
-seasonal_order = (5,1,1,seasonal_p)
-
-
-#arima_order = (1,0,1)
-#seasonal_order = (0,1,1,seasonal_p)
+arima_order = (1,1,1)
+seasonal_order = (1,1,1,seasonal_p)	
 
 # Fit ARIMA model
 model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
@@ -183,6 +174,7 @@ plt.title("UK Embedded Solar Generation Forecast")
 plt.xlabel("Date")
 plt.ylabel("Solar Generation (MW)")
 plt.legend()
+plt.savefig('plots/uk_solar_generation.png')
 plt.show()
 
 # Evaluate forecasts
@@ -196,3 +188,6 @@ rmse = float("{:.4f}".format(rmse))
 mae = mean_absolute_error(X_test, predictions)
 
 print(f'R2: {r2:.2f}, MSE: {mse:.2f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}')
+
+# Save model to disk
+#joblib.dump(model, "results/solar_generation_arima_model.pkl")
