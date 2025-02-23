@@ -21,7 +21,8 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import r2_score,  mean_squared_error, mean_absolute_error
 from pandas.plotting import autocorrelation_plot
 from math import sqrt
-import joblib
+from pmdarima.arima.utils import nsdiffs
+import pickle
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -57,7 +58,13 @@ df['EMBEDDED_SOLAR_GENERATION'] = df['EMBEDDED_SOLAR_GENERATION'].astype('float3
 df_solar = df['EMBEDDED_SOLAR_GENERATION']  # Embedded solar is the column for solar generation in the UK
 print(df_solar.head())
 
-# Resample to average values for weekly data
+"""
+# Select the wind generation column for analysis
+df['EEMBEDDED_WIND_GENERATION'] = df['EMBEDDED_WIND_GENERATION'].astype('float32')
+df_wind = df['EMBEDDED_WIND_GENERATION']  # Embedded solar is the column for solar generation in the UK
+print(df_wind.head())
+"""
+# Resample to average values to get data at weekly data to reduce the size of the dataset
 data = df_solar.resample('W').mean()
 
 # Perform autocorrelation plot
@@ -69,11 +76,17 @@ plot_acf(data)
 plot_pacf(data)
 plt.show()
 
-# Visualise the seasonal decomposition
-seasonal_p = 52 
-decomposition=seasonal_decompose(data, model='additive', period=seasonal_p)
+# Visualise the seasonal decomposition of the data
+decomposition = seasonal_decompose(data, model='additive') 
 decomposition.plot()
 plt.show()
+
+seasonal_p = 52 # Seasonal period is 52 weeks
+D = 1  # Seasonal differencing term
+
+# Estimate number of seasonal differences using a Canova-Hansen test
+#D = nsdiffs(data, m= seasonal_p, max_D=3, test='ch')  
+print(f"Estimated seasonal differencing term (D): {D}")
 
 # Split the dataset into train and test set
 X = data.values
@@ -82,12 +95,11 @@ X_train, X_test = X[0:size], X[size:len(X)]
 
 # Plot the solar generation data
 plt.figure(figsize=(12, 6))
-plt.plot(pd.date_range(data.index[-1], freq= 'H', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
+plt.plot(pd.date_range(data.index[-1], freq= 'D', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
 plt.title("UK Solar Generation Over Time")
 plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
 plt.legend()
-#plt.savefig('plots/uk_electricity_demand_daily.png')
 plt.show()
 
 # Perform Augmented Dickey-Fuller (ADF)test to check for stationarity
@@ -105,39 +117,37 @@ def adf_test(series):
 
 is_stationary = adf_test(data)
 
-# Perform differencing if data is Not stationary
+# Perform differencing if data is Not stationary to make it stationary and determine max_d
 max_d = 0
-max_D = 1
 if not is_stationary:
-	max_d = max_d + 1
-	max_D = max_D + 1
+	max_d = max_d + 1	
 	data_diff = data.diff().dropna()
 	seasonal_data_diff = data_diff.diff(seasonal_p).dropna()	
 	plot_acf(seasonal_data_diff, lags=seasonal_p)
 	plot_pacf(seasonal_data_diff, lags=seasonal_p)
 	plt.show()	
-	data = seasonal_data_diff
-
-"""	
+	
 # Evaluate arima model to determine the order
-auto_model = auto_arima(data,start_p=1,start_q=1, d=max_d, test='adf', n_jobs=-1, m=seasonal_p,D=max_D, seasonal_test='ocsb', stepwise=True, seasonal=True,trace=True)
+auto_model = auto_arima(data, start_p=0, start_q=0,
+    max_p=3, d=max_d, max_d=2, max_q=3,
+    start_P=1, D=D, start_Q=0, max_P=3, max_D=3,
+    max_Q=3, m = seasonal_p, seasonal=True, 
+    stationary=False,
+    error_action='warn', trace=True,
+    suppress_warnings=True, stepwise=True,
+    random_state=20, n_fits=50)
 
 # Summary of best ARIMA model
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
-"""
 
-# r2 = 0.82
-#arima_order = (0,1,1) 
-#seasonal_order = (0,1,1,seasonal_p)
-
-# r2 = 0.83
-arima_order = (1,1,1)
-seasonal_order = (1,1,1,seasonal_p)	
+#r2 = 0.83
+#arima_order = (1,1,1)
+#seasonal_order = (1,1,1,seasonal_p)	
 
 # Fit ARIMA model
-model = SARIMAX(X_train, order= arima_order, seasonal_order=seasonal_order) 
+model = SARIMAX(X_train,  order=arima_order, seasonal_order=seasonal_order) 
 model_fit = model.fit()
 
 # Line plot of residuals
@@ -156,20 +166,15 @@ print(residuals.describe())
 print(model_fit.summary())
 
 # Forecast solar generation using the test data
-forecast_steps = len(X) - size
-predictions = model_fit.forecast(steps=forecast_steps)
-print(predictions)
-
-# Forecast solar generation using the test data
 forecast_steps = len(X) - size 
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
 # Plot the results with specified colors
 plt.figure(figsize=(14,7))
-plt.plot(data.iloc[:size].index, X_train, label='Train', color='#203147')
-plt.plot(data.iloc[size:].index, X_test, label='Test', color='#01ef63')
-plt.plot(data.iloc[size:].index, forecast, label='Forecast', color='orange')
+plt.plot(data.iloc[:size].index, X_train, label='Train Solar Generation Data', color='#203147')
+plt.plot(data.iloc[size:].index, X_test, label='Test Solar Generation Data', color='#01ef63')
+plt.plot(data.iloc[size:].index, forecast, label='Forecast Solar Generation Data', color='orange')
 plt.title("UK Embedded Solar Generation Forecast")
 plt.xlabel("Date")
 plt.ylabel("Solar Generation (MW)")
@@ -178,16 +183,21 @@ plt.savefig('plots/uk_solar_generation.png')
 plt.show()
 
 # Evaluate forecasts
-rmse = sqrt(mean_squared_error(X_test, predictions))
+rmse = sqrt(mean_squared_error(X_test, forecast))
 print('Test RMSE: %.3f' % rmse)
 
-r2 = r2_score(X_test, predictions)
-mse = mean_squared_error(X_test, predictions)
+r2 = r2_score(X_test, forecast)
+mse = mean_squared_error(X_test, forecast)
 rmse = np.sqrt(mse)
 rmse = float("{:.4f}".format(rmse))         
-mae = mean_absolute_error(X_test, predictions)
+mae = mean_absolute_error(X_test, forecast)
 
+# Print evaluation metrics
 print(f'R2: {r2:.2f}, MSE: {mse:.2f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}')
 
+"""
 # Save model to disk
-#joblib.dump(model, "results/solar_generation_arima_model.pkl")
+import pickle
+with open('results/solar_generation_arima_model1.pkl', 'wb') as f:
+   pickle.dump(model_fit, f)
+"""
