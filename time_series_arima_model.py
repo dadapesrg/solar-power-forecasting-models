@@ -23,6 +23,7 @@ from pandas.plotting import autocorrelation_plot
 from math import sqrt
 from pmdarima.arima.utils import nsdiffs
 import pickle
+import joblib
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -90,8 +91,10 @@ print(f"Estimated seasonal differencing term (D): {D}")
 
 # Split the dataset into train and test set
 X = data.values
-size = int(len(X) * 0.8)
+size = int(len(X) * 0.5)
 X_train, X_test = X[0:size], X[size:len(X)]
+data_train, data_test = data.iloc[0:size], data.iloc[size:len(X)]
+data.to_csv('data/UK_data/solar_data.csv')
 
 # Plot the solar generation data
 plt.figure(figsize=(12, 6))
@@ -101,7 +104,7 @@ plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
 plt.legend()
 plt.show()
-
+"""
 # Perform Augmented Dickey-Fuller (ADF)test to check for stationarity
 def adf_test(series):
 	is_stationary = False
@@ -141,13 +144,21 @@ auto_model = auto_arima(data, start_p=0, start_q=0,
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
+"""
+#r2 = 0.83
+#arima_order = (2,2,2)
+#seasonal_order = (2,1,2,seasonal_p)	
 
 #r2 = 0.83
 #arima_order = (1,1,1)
 #seasonal_order = (1,1,1,seasonal_p)	
 
+arima_order = (1,1,1)
+seasonal_order = (2,1,0,seasonal_p)
+
 # Fit ARIMA model
-model = SARIMAX(X_train,  order=arima_order, seasonal_order=seasonal_order) 
+model = SARIMAX(X_test,  order=arima_order, seasonal_order=seasonal_order) 
+#model = SARIMAX(data,  order=arima_order, seasonal_order=seasonal_order) 
 model_fit = model.fit()
 
 # Line plot of residuals
@@ -170,11 +181,23 @@ forecast_steps = len(X) - size
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
+forecast_steps = 184
+last_date = pd.to_datetime("2025-01-19")  # The last date in the dataset
+future_dates = pd.date_range(last_date, periods=forecast_steps + 1, freq='W')[1:]
+
+forecast_result = model_fit.get_forecast(steps=forecast_steps)
+forecast = forecast_result.predicted_mean
+
 # Plot the results with specified colors
 plt.figure(figsize=(14,7))
-plt.plot(data.iloc[:size].index, X_train, label='Train Solar Generation Data', color='#203147')
+#plt.plot(data.iloc[:size].index, X_train, label='Train Solar Generation Data', color='#203147')
 plt.plot(data.iloc[size:].index, X_test, label='Test Solar Generation Data', color='#01ef63')
-plt.plot(data.iloc[size:].index, forecast, label='Forecast Solar Generation Data', color='orange')
+#plt.plot(data.iloc[size:].index, forecast, label='Forecast Solar Generation Data', color='orange')
+
+plt.plot(future_dates, forecast, label="Solar Generation Forecast", color="red")
+#plt.plot(data.index, data.values, label='Forecast Solar Generation Data', color='orange')
+#plt.plot(pd.date_range(data.index[-1], freq= 'D', periods=(data.shape[0])), data, label="Solar Generation", marker='x')
+
 plt.title("UK Embedded Solar Generation Forecast")
 plt.xlabel("Date")
 plt.ylabel("Solar Generation (MW)")
@@ -194,6 +217,9 @@ mae = mean_absolute_error(X_test, forecast)
 
 # Print evaluation metrics
 print(f'R2: {r2:.2f}, MSE: {mse:.2f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}')
+
+# Save model to disk
+joblib.dump(model_fit, "results/solar_arima_model.pkl")
 
 """
 # Save model to disk
