@@ -1,9 +1,14 @@
-# We will use ARIMA model to forecast the solar power generation in the UK. 
+# We will use ARIMA/SARIMA model to forecast the solar power generation in the UK. 
 # ARIMA is a time series forecasting model that uses past data to predict future values.  
 # The model has three main parameters: p, d, and q.
 # p: The number of lag observations included in the model (lag order).
 # d: The number of times that the raw observations are differenced (degree of differencing).
 # q: The size of the moving average window (order of moving average).
+# The model also has seasonal parameters: P, D, Q, and s.
+# P: The number of seasonal lag observations included in the model (seasonal lag order).
+# D: The number of times that the seasonal observations are differenced (seasonal degree of differencing).
+# Q: The size of the seasonal moving average window (seasonal order of moving average).
+# s: The period of the seasonal observations.
 # We will use the auto_arima function from the pmdarima library to automatically find the best parameters for the ARIMA model.
 # We will then fit the ARIMA model to the data and forecast the solar generation and test the accuracy of the model.
 # Finally, we will plot the forecasted generation along with the test data to visualize the results.
@@ -104,7 +109,7 @@ plt.xlabel("Date")
 plt.ylabel(" Solar Generation (MW)")
 plt.legend()
 plt.show()
-"""
+
 # Perform Augmented Dickey-Fuller (ADF)test to check for stationarity
 def adf_test(series):
 	is_stationary = False
@@ -131,10 +136,10 @@ if not is_stationary:
 	plt.show()	
 	
 # Evaluate arima model to determine the order
-auto_model = auto_arima(data, start_p=0, start_q=0,
-    max_p=3, d=max_d, max_d=2, max_q=3,
-    start_P=1, D=D, start_Q=0, max_P=3, max_D=3,
-    max_Q=3, m = seasonal_p, seasonal=True, 
+auto_model = auto_arima(data_train, start_p=0, start_q=0,
+    max_p=2, d=max_d, max_d=1, max_q=1,
+    start_P=1, D=D, start_Q=0, max_P=2, max_D=1,
+    max_Q=1, m = seasonal_p, seasonal=True, 
     stationary=False,
     error_action='warn', trace=True,
     suppress_warnings=True, stepwise=True,
@@ -144,7 +149,7 @@ auto_model = auto_arima(data, start_p=0, start_q=0,
 print(auto_model.summary())
 arima_order = auto_model.order
 seasonal_order = auto_model.seasonal_order
-"""
+
 #r2 = 0.83
 #arima_order = (2,2,2)
 #seasonal_order = (2,1,2,seasonal_p)	
@@ -153,11 +158,12 @@ seasonal_order = auto_model.seasonal_order
 #arima_order = (1,1,1)
 #seasonal_order = (1,1,1,seasonal_p)	
 
-arima_order = (1,1,1)
-seasonal_order = (2,1,0,seasonal_p)
+#arima_order = (1,1,1)
+#seasonal_order = (2,1,0,seasonal_p)
 
 # Fit ARIMA model
-model = SARIMAX(X_test,  order=arima_order, seasonal_order=seasonal_order) 
+#model = SARIMAX(X_test,  order=arima_order, seasonal_order=seasonal_order) #reduce the size of the dataset for ARIMA simple model
+model = SARIMAX(X_train,  order=arima_order, seasonal_order=seasonal_order) 
 #model = SARIMAX(data,  order=arima_order, seasonal_order=seasonal_order) 
 model_fit = model.fit()
 
@@ -168,6 +174,7 @@ plt.show()
 
 # Density plot of residuals
 residuals.plot(kind='kde')
+residuals.plot(kind='hist', bins=50)
 plt.show()
 
 # Summary stats of residuals
@@ -181,7 +188,7 @@ forecast_steps = len(X) - size
 forecast = model_fit.forecast(steps=forecast_steps)
 print(forecast)
 
-forecast_steps = 184
+#forecast_steps = 184
 last_date = pd.to_datetime("2025-01-19")  # The last date in the dataset
 future_dates = pd.date_range(last_date, periods=forecast_steps + 1, freq='W')[1:]
 
@@ -219,7 +226,7 @@ mae = mean_absolute_error(X_test, forecast)
 print(f'R2: {r2:.2f}, MSE: {mse:.2f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}')
 
 # Save model to disk
-joblib.dump(model_fit, "results/solar_arima_model.pkl")
+#joblib.dump(model_fit, "results/solar_arima_model.pkl")
 
 """
 # Save model to disk
